@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>会議室予約 v5 — Soltec VN</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI','Hiragino Sans','Yu Gothic UI',sans-serif;background:#f1f5f9;color:#1e293b;min-height:100vh;font-size:13px;-webkit-user-select:none;user-select:none;}
+
+/* HEADER */
+header{background:linear-gradient(135deg,#1e40af,#1d4ed8);padding:9px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px #1d4ed820;height:45px;}
+header h1{font-size:14px;font-weight:700;color:#fff;line-height:1.2;}
+header h1 small{font-size:9px;font-weight:400;color:#bfdbfe;margin-left:6px;}
+.badge{background:#ffffff22;color:#fff;font-size:9px;padding:1px 6px;border-radius:99px;font-weight:600;border:1px solid #ffffff44;}
+#clockDisplay{margin-left:auto;font-size:10px;color:#bfdbfe;text-align:right;line-height:1.5;}
+.sync-status{font-size:9px;padding:2px 7px;border-radius:99px;font-weight:600;}
+.sync-ok{background:#dcfce7;color:#16a34a;}
+.sync-err{background:#fee2e2;color:#dc2626;}
+.sync-ing{background:#fef9c3;color:#854d0e;}
+
+/* APP LAYOUT: left-sidebar | main | right-sidebar */
+.app{display:flex;height:calc(100vh - 45px);overflow:hidden;}
+
+/* ===== LEFT SIDEBAR (mini cal + controls) ===== */
+.left-sidebar{width:200px;flex-shrink:0;border-right:1px solid #e2e8f0;background:#fff;display:flex;flex-direction:column;overflow-y:auto;}
+.btabs{display:flex;border-bottom:1px solid #e2e8f0;}
+.btab{flex:1;padding:7px 3px;text-align:center;font-size:9px;font-weight:600;cursor:pointer;color:#64748b;border-bottom:2px solid transparent;background:#f8fafc;line-height:1.3;transition:all .15s;}
+.btab.active{color:#1d4ed8;border-bottom-color:#1d4ed8;background:#fff;}
+.btab:hover{color:#1d4ed8;background:#eff6ff;}
+.mini-cal{padding:8px;}
+.mc-nav{display:flex;align-items:center;margin-bottom:5px;}
+.mc-nav button{background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;width:20px;height:20px;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;}
+.mc-nav button:hover{background:#e2e8f0;}
+.mc-month{flex:1;text-align:center;font-size:10px;font-weight:700;color:#0f172a;}
+.mc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;}
+.mc-dh{font-size:8px;font-weight:700;color:#94a3b8;text-align:center;padding:2px 0;}
+.mc-d{font-size:9px;text-align:center;padding:3px 1px;border-radius:3px;cursor:pointer;color:#334155;position:relative;}
+.mc-d:hover{background:#eff6ff;color:#1d4ed8;}
+.mc-d.today{background:#dbeafe;color:#1d4ed8;font-weight:700;}
+.mc-d.selected{background:#1d4ed8;color:#fff!important;font-weight:700;}
+.mc-d.other-month{color:#d1d5db;}
+.mc-d .dot{width:3px;height:3px;background:#3b82f6;border-radius:50%;margin:1px auto 0;}
+
+/* ===== RIGHT SIDEBAR (room list) ===== */
+.right-sidebar{width:185px;flex-shrink:0;border-left:2px solid #e2e8f0;background:#fff;display:flex;flex-direction:column;overflow-y:auto;}
+.rs-header{padding:9px 10px 6px;border-bottom:1px solid #e2e8f0;background:#f8fafc;}
+.rs-header h3{font-size:10px;font-weight:700;color:#334155;}
+.rs-header small{font-size:8px;color:#94a3b8;}
+.rs-all{display:flex;align-items:center;gap:7px;padding:8px 10px;cursor:pointer;border-left:3px solid transparent;border-bottom:1px solid #f1f5f9;transition:all .15s;}
+.rs-all:hover{background:#eff6ff;}
+.rs-all.active{background:#eff6ff;border-left-color:#1d4ed8;}
+.rs-all .rs-label{font-size:11px;font-weight:700;color:#475569;flex:1;}
+.rs-all.active .rs-label{color:#1d4ed8;}
+.rs-group-label{font-size:9px;font-weight:700;color:#1d4ed8;padding:7px 10px 3px;background:#f8fbff;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;text-transform:uppercase;letter-spacing:.5px;}
+.rs-room{display:flex;align-items:center;gap:6px;padding:8px 10px;cursor:pointer;border-left:3px solid transparent;border-bottom:1px solid #f8fafc;transition:all .15s;position:relative;}
+.rs-room:hover{background:#eff6ff;}
+.rs-room.active{background:#eff6ff;border-left-color:#1d4ed8;}
+.rs-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:1.5px solid #fff;box-shadow:0 0 0 1px #e2e8f0;}
+.rs-info{flex:1;min-width:0;}
+.rs-name{font-size:11px;font-weight:600;color:#334155;line-height:1.2;}
+.rs-room.active .rs-name{color:#1d4ed8;}
+.rs-name-ja{font-size:8px;color:#94a3b8;}
+.rs-tags{display:flex;gap:2px;margin-top:2px;flex-wrap:wrap;}
+.rs-tag{font-size:7px;background:#eff6ff;color:#1d4ed8;padding:1px 3px;border-radius:2px;}
+.rs-badge{font-size:8px;font-weight:700;padding:2px 5px;border-radius:99px;white-space:nowrap;}
+.rs-free{background:#dcfce7;color:#16a34a;}
+.rs-busy{background:#fee2e2;color:#dc2626;}
+
+/* ===== MAIN VIEW ===== */
+.main-view{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.view-nav{display:flex;align-items:center;padding:7px 10px;gap:6px;border-bottom:1px solid #e2e8f0;background:#fff;box-shadow:0 1px 3px #0000000a;flex-shrink:0;}
+.vbtn-grp{display:flex;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;}
+.vbtn{padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer;color:#475569;background:#f8fafc;border:none;transition:all .15s;}
+.vbtn.active{background:#1d4ed8;color:#fff;}
+.nav-btn{background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;width:24px;height:24px;border-radius:5px;cursor:pointer;font-size:13px;}
+.nav-btn:hover{background:#e2e8f0;}
+.date-lbl{flex:1;text-align:center;font-size:11px;font-weight:700;color:#0f172a;line-height:1.4;}
+.today-btn{background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-weight:600;}
+.today-btn:hover{background:#e2e8f0;}
+.add-btn{background:#1d4ed8;border:none;color:#fff;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;}
+.add-btn:hover{background:#1e40af;}
+
+/* ===== MONTH VIEW ===== */
+#viewContainer{flex:1;overflow:auto;}
+.mv-legend{display:flex;flex-wrap:wrap;gap:5px;padding:5px 8px;border-bottom:1px solid #e2e8f0;background:#fff;}
+.mv-leg-item{display:flex;align-items:center;gap:3px;font-size:9px;color:#475569;cursor:pointer;padding:2px 5px;border-radius:3px;border:1px solid transparent;}
+.mv-leg-item:hover{background:#eff6ff;border-color:#bfdbfe;}
+.mv-leg-dot{width:9px;height:9px;border-radius:2px;border:1px solid #e2e8f0;}
+.mv-grid-header{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:2px solid #e2e8f0;background:#fff;position:sticky;top:0;z-index:5;}
+.mv-dh{padding:5px 4px;text-align:center;font-size:9px;font-weight:700;color:#64748b;}
+.mv-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+.mv-cell{border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;min-height:90px;padding:3px;background:#fff;cursor:pointer;overflow:hidden;transition:background .1s;}
+.mv-cell:hover{background:#f8fbff;}
+.mv-cell.today{background:#eff6ff;}
+.mv-cell.other-month{background:#f9fafb;}
+.mv-cell.other-month .mv-dn{color:#d1d5db;}
+.mv-dn{font-size:11px;font-weight:700;color:#334155;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;margin-bottom:2px;}
+.mv-cell.today .mv-dn{background:#1d4ed8;color:#fff;}
+.mv-ev{font-size:9px;font-weight:600;padding:2px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;border-left:2px solid transparent;}
+.mv-more{font-size:8px;color:#94a3b8;cursor:pointer;}
+
+/* ===== TIMELINE ===== */
+.tl-outer{display:flex;height:100%;overflow:hidden;}
+.tl-gutter{width:44px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;overflow:hidden;position:relative;}
+.tl-gutter-inner{position:absolute;top:0;left:0;right:0;}
+.tl-g-head{height:52px;border-bottom:2px solid #e2e8f0;}
+.tl-g-slot{height:48px;display:flex;align-items:flex-start;justify-content:flex-end;padding:3px 4px 0;border-bottom:1px solid #e2e8f0;}
+.tl-g-slot span{font-size:9px;color:#94a3b8;}
+.tl-cols-wrap{flex:1;overflow:auto;}
+.tl-head-row{display:flex;position:sticky;top:0;z-index:20;background:#fff;border-bottom:2px solid #e2e8f0;}
+.tl-col-head{flex:1;min-width:100px;padding:5px 6px;border-right:1px solid #e2e8f0;cursor:pointer;transition:background .15s;}
+.tl-col-head:hover{background:#f5f8ff;}
+.tl-col-head.today-col{background:#eff6ff;}
+.dh-dow{font-size:9px;color:#64748b;font-weight:600;}
+.dh-num{font-size:17px;font-weight:700;color:#334155;line-height:1.1;}
+.tl-col-head.today-col .dh-num{color:#fff;background:#1d4ed8;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.dh-sub{font-size:8px;color:#94a3b8;margin-top:1px;}
+.tl-body-row{display:flex;}
+.tl-day-col{flex:1;min-width:100px;border-right:2px solid #e2e8f0;position:relative;background:#fff;}
+.tl-slot{height:48px;border-bottom:1px solid #e2e8f0;cursor:pointer;}
+.tl-slot:nth-child(odd){background:#fafcff;}
+.tl-slot:nth-child(even){background:#fff;}
+.tl-slot:hover{background:#dbeafe15;}
+/* BOOKING BLOCKS */
+.bk{position:absolute;left:2px;right:2px;border-radius:5px;cursor:grab;overflow:hidden;z-index:2;border:1.5px solid transparent;transition:box-shadow .15s,filter .15s;}
+.bk:hover{filter:brightness(.93);box-shadow:0 2px 8px #00000022;}
+.bk.dragging{opacity:.55;cursor:grabbing;z-index:50;box-shadow:0 4px 16px #00000030;}
+.bk-inner{padding:3px 5px;}
+.bk-time{font-size:8px;font-weight:600;opacity:.7;}
+.bk-title{font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bk-person{font-size:8px;opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bk-lock{position:absolute;top:3px;right:4px;font-size:9px;opacity:.6;}
+.bk-resize{position:absolute;bottom:0;left:0;right:0;height:6px;cursor:ns-resize;}
+.drop-ghost{position:fixed;border-radius:5px;background:#dbeafe;border:2px dashed #3b82f6;z-index:999;pointer-events:none;opacity:.7;display:none;}
+.now-line{position:absolute;left:0;right:0;height:2px;background:#ef4444;z-index:8;pointer-events:none;}
+.now-line::before{content:'';position:absolute;top:-4px;left:0;width:9px;height:9px;background:#ef4444;border-radius:50%;}
+
+/* COLORS */
+.c-s201{background:#dbeafe;color:#1e40af;border-color:#93c5fd;}
+.c-s202{background:#dcfce7;color:#166534;border-color:#86efac;}
+.c-s203{background:#fef9c3;color:#854d0e;border-color:#fde047;}
+.c-s204{background:#fce7f3;color:#9d174d;border-color:#f9a8d4;}
+.c-n201{background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;}
+.c-n202{background:#ffedd5;color:#9a3412;border-color:#fdba74;}
+.c-n203{background:#cffafe;color:#155e75;border-color:#67e8f9;}
+.c-n204{background:#f0fdf4;color:#14532d;border-color:#86efac;}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:#00000044;z-index:600;align-items:center;justify-content:center;}
+.overlay.active{display:flex;}
+.modal{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;width:400px;max-width:96vw;box-shadow:0 8px 32px #0000001a;max-height:90vh;overflow-y:auto;}
+.modal h2{font-size:14px;font-weight:700;margin-bottom:12px;color:#0f172a;}
+.modal h2 small{font-size:9px;color:#64748b;font-weight:400;display:block;margin-top:2px;}
+.fg{margin-bottom:10px;}
+.fg label{display:block;font-size:9px;font-weight:700;color:#64748b;margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px;}
+.fg label span{font-weight:400;color:#94a3b8;}
+.fg input,.fg select,.fg textarea{width:100%;background:#f8fafc;border:1px solid #cbd5e1;color:#0f172a;border-radius:6px;padding:6px 9px;font-size:12px;outline:none;transition:border-color .15s;font-family:inherit;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:#1d4ed8;background:#fff;}
+.fg textarea{resize:none;height:44px;}
+.row2{display:flex;gap:8px;}
+.row2 .fg{flex:1;}
+.rchips{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;}
+.rchip{padding:3px 8px;border-radius:99px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;transition:all .15s;}
+.rchip.on{background:#1d4ed8;color:#fff;border-color:#1d4ed8;}
+.cwarn{background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:5px 8px;font-size:10px;color:#dc2626;margin-bottom:8px;display:none;}
+.cwarn.show{display:block;}
+.pin-hint{font-size:9px;color:#94a3b8;margin-top:3px;line-height:1.4;}
+.btn-row{display:flex;gap:6px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap;}
+.btn{padding:6px 13px;border-radius:6px;border:none;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;}
+.btn-primary{background:#1d4ed8;color:#fff;}
+.btn-primary:hover{background:#1e40af;}
+.btn-warning{background:#d97706;color:#fff;}
+.btn-warning:hover{background:#b45309;}
+.btn-danger{background:#dc2626;color:#fff;}
+.btn-danger:hover{background:#b91c1c;}
+.btn-ghost{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;}
+.btn-ghost:hover{background:#e2e8f0;}
+
+/* POPUP */
+.popup{display:none;position:fixed;z-index:650;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:12px;min-width:210px;max-width:250px;box-shadow:0 6px 20px #00000018;}
+.popup.active{display:block;}
+.pp-title{font-size:12px;font-weight:700;color:#0f172a;margin-bottom:5px;}
+.pp-row{font-size:10px;color:#64748b;margin-bottom:3px;line-height:1.4;}
+.pp-row span{color:#1e293b;font-weight:500;}
+.pp-actions{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap;}
+
+/* LOADING */
+.loading-bar{position:fixed;top:0;left:0;height:3px;background:#3b82f6;z-index:9999;transition:width .3s;display:none;}
+.loading-bar.show{display:block;}
+/* SETUP */
+.setup-overlay{position:fixed;inset:0;background:#ffffffee;z-index:700;display:none;align-items:center;justify-content:center;}
+.setup-overlay.show{display:flex;}
+.setup-box{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;width:420px;box-shadow:0 8px 32px #0000001a;}
+.setup-box h2{font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;}
+.setup-box p{font-size:11px;color:#64748b;margin-bottom:14px;line-height:1.6;}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="loading-bar" id="loadingBar"></div>
+
+<!-- SETUP -->
+<div class="setup-overlay" id="setupOverlay">
+<div class="setup-box">
+  <h2>⚙️ Kết nối Google Sheets / 初期設定</h2>
+  <p>Nhập URL Apps Script để đồng bộ dữ liệu với Google Sheets.<br>
+  <small style="color:#94a3b8;">URL dạng: https://script.google.com/macros/s/.../exec</small></p>
+  <div class="fg"><label>Apps Script URL</label>
+    <input type="text" id="setup_url" placeholder="https://script.google.com/macros/s/..."></div>
+  <div class="fg"><label>Password</label>
+    <input type="text" id="setup_pass" value="soltec2024"></div>
+  <div id="setup_err" style="color:#dc2626;font-size:11px;margin-bottom:8px;display:none;"></div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-primary" onclick="testAndSave()" style="flex:1;">Test & Lưu kết nối</button>
+    <button class="btn btn-ghost" onclick="useOffline()">Dùng offline</button>
+  </div>
+</div>
+</div>
+
+<header>
+  <div style="font-size:18px">🏭</div>
+  <h1>会議室予約 / Đặt phòng họp <small><span class="badge">v5 · Soltec VN</span></small></h1>
+  <span id="syncBadge" class="sync-status" style="display:none;"></span>
+  <div id="clockDisplay"></div>
+</header>
+
+<div class="app">
+  <!-- LEFT SIDEBAR -->
+  <div class="left-sidebar">
+    <div class="btabs">
+      <div class="btab active" onclick="switchB('soltec')">Soltec<br><span style="font-size:7px;font-weight:400">第1工場</span></div>
+      <div class="btab" onclick="switchB('nankai')">Nankai<br><span style="font-size:7px;font-weight:400">第2工場</span></div>
+      <div class="btab" onclick="switchB('all')">全て<br><span style="font-size:7px;font-weight:400">Tất cả</span></div>
+    </div>
+    <div class="mini-cal">
+      <div class="mc-nav">
+        <button onclick="mcShift(-1)">‹</button>
+        <div class="mc-month" id="mcMonth"></div>
+        <button onclick="mcShift(1)">›</button>
+      </div>
+      <div class="mc-grid" id="mcGrid"></div>
+    </div>
+    <div style="padding:8px 8px 4px;border-top:1px solid #f1f5f9;">
+      <button class="add-btn" style="width:100%;font-size:11px;" onclick="openModal(null,null,null)">＋ 予約 / Đặt phòng</button>
+    </div>
+    <div style="padding:4px 8px 8px;">
+      <button class="today-btn" style="width:100%;" onclick="goToday()">⊙ 今日 / Hôm nay</button>
+    </div>
+  </div>
+
+  <!-- MAIN VIEW -->
+  <div class="main-view">
+    <div class="view-nav">
+      <div class="vbtn-grp">
+        <button class="vbtn" id="vbtn-month" onclick="setView('month')">月/Tháng</button>
+        <button class="vbtn active" id="vbtn-week" onclick="setView('week')">週/Tuần</button>
+        <button class="vbtn" id="vbtn-day" onclick="setView('day')">日/Ngày</button>
+      </div>
+      <button class="nav-btn" onclick="navPrev()">‹</button>
+      <div class="date-lbl" id="dateLbl"></div>
+      <button class="nav-btn" onclick="navNext()">›</button>
+    </div>
+    <div id="viewContainer"></div>
+  </div>
+
+  <!-- RIGHT SIDEBAR: ROOM LIST -->
+  <div class="right-sidebar">
+    <div class="rs-header">
+      <h3>📋 Phòng họp / 会議室</h3>
+      <small>Click để lọc lịch theo phòng</small>
+    </div>
+    <div class="rs-all active" id="rs-all" onclick="selectRoom(null)">
+      <div class="rs-dot" style="background:#94a3b8;border-color:#e2e8f0;"></div>
+      <div class="rs-label">Tất cả / 全て</div>
+    </div>
+    <div id="rs-body"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="bookModal">
+<div class="modal">
+  <h2 id="modalTitle">📅 予約 / Đặt phòng<small id="modalSub"></small></h2>
+  <div class="cwarn" id="cwarn"></div>
+  <div class="fg">
+    <label>会議室 <span>/ Phòng họp</span></label>
+    <select id="f_room" onchange="chkConflict()"></select>
+  </div>
+  <div class="row2">
+    <div class="fg"><label>開始 <span>/ Bắt đầu</span></label>
+      <input type="time" id="f_start" value="08:00" onchange="chkConflict()"></div>
+    <div class="fg"><label>終了 <span>/ Kết thúc (12 trưa = 12:00 PM)</span></label>
+      <input type="time" id="f_end" value="09:00" onchange="chkConflict()"></div>
+  </div>
+  <div class="fg"><label>利用者 <span>/ Người đặt</span></label>
+    <input type="text" id="f_person" placeholder="Tên phòng ban / 氏名・部署"></div>
+  <div class="fg"><label>要件 <span>/ Nội dung họp</span></label>
+    <input type="text" id="f_title" placeholder="Kick-off / 週次会議 / Tiếp khách" oninput="chkConflict()"></div>
+  <div class="fg">
+    <label>繰り返し <span>/ Lặp lại</span></label>
+    <div class="rchips">
+      <div class="rchip on" data-v="none" onclick="setRecur(this)">なし</div>
+      <div class="rchip" data-v="daily" onclick="setRecur(this)">毎日</div>
+      <div class="rchip" data-v="weekly" onclick="setRecur(this)">毎週/Weekly</div>
+      <div class="rchip" data-v="biweekly" onclick="setRecur(this)">隔週</div>
+      <div class="rchip" data-v="monthly" onclick="setRecur(this)">毎月</div>
+    </div>
+  </div>
+  <div class="fg" id="fg_recur_until" style="display:none;">
+    <label>繰り返し終了 <span>/ Kết thúc lặp lại</span></label>
+    <input type="date" id="f_recur_until" style="max-width:200px;">
+    <div style="font-size:9px;color:#94a3b8;margin-top:3px;">Để trống = lặp mãi mãi / 空白 = 無期限</div>
+  </div>
+  <div class="fg"><label>メモ <span>/ Ghi chú</span></label>
+    <textarea id="f_note" placeholder="参加者・議題 / Thành phần, chuẩn bị..."></textarea></div>
+  <div class="fg" id="fg_pin">
+    <label>🔒 Mã PIN <span>/ パスコード (để bảo vệ lịch, tùy chọn)</span></label>
+    <input type="password" id="f_pin" maxlength="6" placeholder="Nhập PIN 4-6 số (bỏ trống nếu không cần khóa)" style="letter-spacing:3px;">
+    <div class="pin-hint">⚠ Nhớ PIN này để chỉnh sửa sau. Bỏ trống = ai cũng có thể sửa.</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-danger" id="btnDel" style="display:none;margin-right:auto;" onclick="event.stopPropagation();deleteBk()">削除/Xóa</button>
+    <button class="btn btn-warning" id="btnCopy" style="display:none;" onclick="event.stopPropagation();copyBk()">📋 Copy</button>
+    <button class="btn btn-ghost" onclick="event.stopPropagation();closeModal()">キャンセル/Hủy</button>
+    <button class="btn btn-primary" id="btnSave" onclick="event.stopPropagation();saveBk()">確定/Xác nhận</button>
+  </div>
+</div>
+</div>
+
+<!-- POPUP -->
+<div class="popup" id="popup">
+  <div class="pp-title" id="pp_title"></div>
+  <div class="pp-row">🏠 <span id="pp_room"></span></div>
+  <div class="pp-row">⏰ <span id="pp_time"></span></div>
+  <div class="pp-row">👤 <span id="pp_person"></span></div>
+  <div class="pp-row" id="pp_note_row">📝 <span id="pp_note"></span></div>
+  <div class="pp-actions">
+    <button class="btn btn-primary" id="pp_edit_btn" style="font-size:9px;padding:3px 9px;">✏ Sửa</button>
+    <button class="btn btn-warning" style="font-size:9px;padding:3px 9px;" onclick="copyFromPopup()">📋 Copy</button>
+    <button class="btn btn-ghost" style="font-size:9px;padding:3px 9px;" onclick="closePopup()">✕</button>
+  </div>
+</div>
+<div class="drop-ghost" id="dropGhost"></div>
+
+<script>
+// =============================================
+// CONFIG
+// =============================================
+let API_URL=localStorage.getItem('soltec_api_url')||'';
+let API_PASS=localStorage.getItem('soltec_api_pass')||'soltec2024';
+let USE_SHEETS=!!API_URL;
+
+// =============================================
+// DATA
+// =============================================
+const ROOMS=[
+  {id:'s201',b:'soltec',vi:'P.201 Soltec',ja:'第1会議室',short:'P.201',sja:'第1会',cap:12,tags:['Màn hình','Speaker','Ghế da'],note:'VIP・お客様対応',cc:'c-s201'},
+  {id:'s202',b:'soltec',vi:'P.202 Soltec',ja:'第2会議室',short:'P.202',sja:'第2会',cap:8,tags:[],note:'',cc:'c-s202'},
+  {id:'s203',b:'soltec',vi:'P.203 Soltec',ja:'第3会議室',short:'P.203',sja:'第3会',cap:8,tags:[],note:'',cc:'c-s203'},
+  {id:'s204',b:'soltec',vi:'P.204 Soltec',ja:'第4会議室',short:'P.204',sja:'第4会',cap:15,tags:['Màn hình','Speaker'],note:'生産・Kick-off・Manager',cc:'c-s204'},
+  {id:'n201',b:'nankai',vi:'P.201 Nankai',ja:'南海第1会',short:'P.201',sja:'南海1',cap:10,tags:[],note:'',cc:'c-n201'},
+  {id:'n202',b:'nankai',vi:'P.202 Nankai',ja:'南海第2会',short:'P.202',sja:'南海2',cap:8,tags:[],note:'',cc:'c-n202'},
+  {id:'n203',b:'nankai',vi:'P.203 Nankai',ja:'南海第3会',short:'P.203',sja:'南海3',cap:10,tags:['Màn hình','Speaker'],note:'Zoom・プレゼン',cc:'c-n203'},
+  {id:'n204',b:'nankai',vi:'P.204 Nankai',ja:'南海第4会',short:'P.204',sja:'南海4',cap:8,tags:[],note:'',cc:'c-n204'},
+];
+const HOURS=Array.from({length:13},(_,i)=>i+6);
+const SH=48;
+const DOW_JA=['日','月','火','水','木','金','土'];
+const DOW_VI=['CN','T2','T3','T4','T5','T6','T7'];
+const DCMAP={'c-s201':'#1e40af','c-s202':'#166534','c-s203':'#854d0e','c-s204':'#9d174d','c-n201':'#5b21b6','c-n202':'#9a3412','c-n203':'#155e75','c-n204':'#14532d'};
+
+let bld='soltec', view='week', selectedRoom=null;
+let curDate=new Date(); curDate.setHours(0,0,0,0);
+let mcDate=new Date(curDate);
+let editId=null, recurMode='none', popupId=null, modalDate='';
+let bookings=[], nid=Date.now();
+let drag={active:false,moved:false,startX:0,startY:0,bkId:null,origEl:null,origDstr:null,offsetY:0,dur:0,copyMode:false};
+let rsz={active:false,bkId:null,startY:0,startEH:0};
+
+// =============================================
+// UTILS
+// =============================================
+function ds(d){
+  // Dùng local date để tránh UTC offset gây sai ngày
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function fh(h){return`${String(Math.floor(h)).padStart(2,'0')}:${String(Math.round((h%1)*60)).padStart(2,'0')}`;}
+function p2h(s){
+  if(!s) return 0;
+  // Browser luôn trả về 24h format (HH:MM) dù UI hiển thị AM/PM
+  const parts=s.split(':');
+  if(parts.length<2) return 0;
+  return parseInt(parts[0])||0 + (parseInt(parts[1])||0)/60;
+}
+function rm(id){return ROOMS.find(r=>r.id===id);}
+function dc(r){return DCMAP[r.cc]||'#475569';}
+function visR(){
+  if(selectedRoom) return ROOMS.filter(r=>r.id===selectedRoom);
+  return bld==='all'?ROOMS:ROOMS.filter(r=>r.b===bld);
+}
+function getBksForDate(dstr){
+  return bookings.flatMap(bk=>{
+    if(!bk.recur||bk.recur==='none') return bk.date===dstr?[{...bk}]:[];
+    const base=new Date(bk.date+'T00:00:00'),target=new Date(dstr+'T00:00:00');
+    if(target<base) return [];
+    // Kiểm tra ngày kết thúc lặp
+    if(bk.recurUntil){
+      const until=new Date(bk.recurUntil+'T23:59:59');
+      if(target>until) return [];
+    }
+    const diff=Math.round((target-base)/86400000);
+    if(bk.recur==='daily') return [{...bk,date:dstr}];
+    if(bk.recur==='weekly'&&diff%7===0) return [{...bk,date:dstr}];
+    if(bk.recur==='biweekly'&&diff%14===0) return [{...bk,date:dstr}];
+    if(bk.recur==='monthly'){const b2=new Date(base);b2.setMonth(b2.getMonth()+Math.round(diff/30));return ds(b2)===dstr?[{...bk,date:dstr}]:[];}
+    return[];
+  });
+}
+
+// =============================================
+// CLOCK
+// =============================================
+function tick(){
+  const n=new Date();
+  document.getElementById('clockDisplay').innerHTML=
+    n.toLocaleDateString('ja-JP',{month:'short',day:'numeric',weekday:'short'})+' '+n.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})+'<br>'+
+    n.toLocaleDateString('vi-VN',{weekday:'short',day:'2-digit',month:'2-digit'});
+}
+setInterval(tick,1000);tick();
+
+// =============================================
+// API / SHEETS
+// =============================================
+function setLoading(on){
+  const lb=document.getElementById('loadingBar');
+  lb.style.width=on?'70%':'100%';lb.classList.toggle('show',on);
+  if(!on)setTimeout(()=>lb.classList.remove('show'),300);
+}
+function setSyncBadge(state,msg){
+  const el=document.getElementById('syncBadge');
+  el.style.display='inline-block';
+  el.className='sync-status sync-'+state;
+  el.textContent={ok:'✓ Đã đồng bộ',err:'✗ Lỗi kết nối',ing:'⟳ '+(msg||'...')}[state]||msg;
+}
+async function apiCall(params){
+  if(!USE_SHEETS)return null;
+  setLoading(true);
+  try{
+    const url=new URL(API_URL);
+    url.searchParams.set('pass',API_PASS);
+    url.searchParams.set('action',params.action);
+    if(params.action==='save'&&params.booking) url.searchParams.set('booking',JSON.stringify(params.booking));
+    if(params.action==='delete'&&params.id) url.searchParams.set('id',String(params.id));
+    const resp=await fetch(url.toString(),{method:'GET',mode:'cors'});
+    const data=await resp.json();
+    setLoading(false);return data;
+  }catch(e){setLoading(false);setSyncBadge('err');console.warn('API:',e.message);return null;}
+}
+async function loadFromSheets(force=false){
+  if(!USE_SHEETS){renderMC();render();return;}
+  setSyncBadge('ing','Đang tải...');
+  try{
+    const res=await apiCall({action:'getAll'});
+    if(res&&res.ok){
+      const serverBks=res.bookings||[];
+      if(serverBks.length>0){
+        bookings=serverBks;
+        saveLocalBackup(); // đồng bộ localStorage với server
+        setSyncBadge('ok');
+      } else {
+        // Server trả về rỗng -> dùng localStorage backup nếu có
+        const localBks=loadLocalBackup();
+        if(localBks&&localBks.length>0){
+          bookings=localBks;
+          setSyncBadge('err'); // cảnh báo server chưa có data
+          console.warn('Server empty, using localStorage backup');
+        } else {
+          bookings=[];
+          setSyncBadge('ok');
+        }
+      }
+    } else {
+      // API lỗi -> giữ data hiện tại, load backup nếu bookings rỗng
+      if(bookings.length===0){
+        const localBks=loadLocalBackup();
+        if(localBks) bookings=localBks;
+      }
+      setSyncBadge('err');
+    }
+  } catch(e){
+    setSyncBadge('err');
+    console.warn('loadFromSheets error:', e);
+  }
+  renderMC();render();
+}
+async function saveToSheets(bk){
+  saveLocalBackup(); // lưu local trước, không bao giờ mất data
+  if(!USE_SHEETS)return true;
+  setSyncBadge('ing','Đang lưu...');
+  try{
+    const res=await apiCall({action:'save',booking:bk});
+    if(res&&res.ok){
+      if(res.id&&String(bk.id)!==String(res.id)){
+        const idx=bookings.findIndex(b=>String(b.id)===String(bk.id));
+        if(idx>=0){bookings[idx].id=res.id;saveLocalBackup();}
+      }
+      setSyncBadge('ok');return true;
+    }
+    setSyncBadge('err');return true;
+  }catch(e){console.warn('saveToSheets:',e);setSyncBadge('err');return true;}
+}
+// ===== LOCAL BACKUP (phòng khi mất mạng / server lỗi) =====
+function saveLocalBackup(){
+  try{localStorage.setItem('soltec_bookings',JSON.stringify(bookings));}
+  catch(e){console.warn('localStorage save failed:',e);}
+}
+function loadLocalBackup(){
+  try{
+    const raw=localStorage.getItem('soltec_bookings');
+    if(raw){const bks=JSON.parse(raw);if(bks&&bks.length>0)return bks;}
+  }catch(e){}
+  return null;
+}
+
+async function deleteFromSheets(id){
+  if(!USE_SHEETS)return true;
+  setSyncBadge('ing','Đang xóa...');
+  try{const res=await apiCall({action:'delete',id});if(res&&res.ok){setSyncBadge('ok');return true;}setSyncBadge('err');return true;}
+  catch(e){setSyncBadge('err');return true;}
+}
+setInterval(()=>{if(USE_SHEETS)loadFromSheets();},30000);
+
+// =============================================
+// SETUP
+// =============================================
+async function testAndSave(){
+  const url=document.getElementById('setup_url').value.trim();
+  const pass=document.getElementById('setup_pass').value.trim();
+  const errEl=document.getElementById('setup_err');
+  errEl.style.display='none';
+  if(!url){errEl.textContent='Vui lòng nhập URL';errEl.style.display='block';return;}
+  try{
+    const resp=await fetch(`${url}?action=ping&pass=${pass}`);
+    const data=await resp.json();
+    if(data.ok){
+      localStorage.setItem('soltec_api_url',url);localStorage.setItem('soltec_api_pass',pass);
+      API_URL=url;API_PASS=pass;USE_SHEETS=true;
+      document.getElementById('setupOverlay').classList.remove('show');
+      loadFromSheets();
+    }else{errEl.textContent='Lỗi: '+(data.error||'Sai password');errEl.style.display='block';}
+  }catch(e){errEl.textContent='Không kết nối được. Kiểm tra URL và quyền deploy.';errEl.style.display='block';}
+}
+function useOffline(){document.getElementById('setupOverlay').classList.remove('show');USE_SHEETS=false;renderMC();render();}
+
+// =============================================
+// MINI CALENDAR
+// =============================================
+function renderMC(){
+  const y=mcDate.getFullYear(),mo=mcDate.getMonth();
+  document.getElementById('mcMonth').textContent=new Date(y,mo,1).toLocaleDateString('ja-JP',{year:'numeric',month:'long'});
+  const first=new Date(y,mo,1).getDay(),last=new Date(y,mo+1,0).getDate();
+  const tod=ds(new Date()),sel=ds(curDate);
+  let h=DOW_JA.map(d=>`<div class="mc-dh">${d}</div>`).join('');
+  const prevL=new Date(y,mo,0).getDate();
+  for(let i=first-1;i>=0;i--)h+=`<div class="mc-d other-month">${prevL-i}</div>`;
+  for(let d=1;d<=last;d++){
+    const dstr=ds(new Date(y,mo,d));
+    const hasBk=getBksForDate(dstr).some(b=>bld==='all'||rm(b.rId)?.b===bld);
+    const cls=(dstr===tod?'today ':'')+(dstr===sel?'selected ':'');
+    h+=`<div class="mc-d ${cls}" onclick="mcSel(${y},${mo},${d})">${d}${hasBk?'<div class="dot"></div>':''}</div>`;
+  }
+  const tot=first+last,rows=Math.ceil(tot/7);
+  for(let i=1;i<=rows*7-tot;i++)h+=`<div class="mc-d other-month">${i}</div>`;
+  document.getElementById('mcGrid').innerHTML=h;
+}
+function mcShift(d){mcDate=new Date(mcDate);mcDate.setMonth(mcDate.getMonth()+d);renderMC();}
+function mcSel(y,mo,d){curDate=new Date(y,mo,d);if(view==='month')curDate=new Date(y,mo,1);mcDate=new Date(curDate);renderMC();render();}
+
+// =============================================
+// RIGHT SIDEBAR
+// =============================================
+function selectRoom(rId){
+  selectedRoom=rId;
+  document.getElementById('rs-all').classList.toggle('active',!rId);
+  render();
+}
+function renderRightSidebar(){
+  const tod=ds(new Date()),tb=getBksForDate(tod);
+  const n=new Date(),nh=n.getHours()+n.getMinutes()/60;
+  const rooms=bld==='all'?ROOMS:ROOMS.filter(r=>r.b===bld);
+  const grp={};rooms.forEach(r=>{if(!grp[r.b])grp[r.b]=[];grp[r.b].push(r);});
+  let h='';
+  Object.entries(grp).forEach(([bl,rs])=>{
+    h+=`<div class="rs-group-label">${bl==='soltec'?'🏗 Soltec (第1)':'🏗 Nankai (第2)'}</div>`;
+    rs.forEach(r=>{
+      const busy=tb.some(b=>b.rId===r.id&&b.sH<=nh&&b.eH>nh);
+      const active=selectedRoom===r.id;
+      const tags=r.tags.map(t=>`<span class="rs-tag">${t}</span>`).join('');
+      h+=`<div class="rs-room${active?' active':''}" onclick="(function(){selectRoom(selectedRoom==='${r.id}'?null:'${r.id}');})()">
+        <div class="rs-dot" style="background:${dc(r)};border-color:${dc(r)}22;"></div>
+        <div class="rs-info">
+          <div class="rs-name">${r.short}</div>
+          <div class="rs-name-ja">${r.sja}${r.note?' · '+r.note:''}</div>
+          ${tags?`<div class="rs-tags">${tags}</div>`:''}
+        </div>
+        <span class="rs-badge ${busy?'rs-busy':'rs-free'}">${busy?'Đang':'Trống'}</span>
+      </div>`;
+    });
+  });
+  document.getElementById('rs-body').innerHTML=h;
+}
+
+// =============================================
+// BUILDING SWITCH
+// =============================================
+function switchB(b){
+  bld=b;selectedRoom=null;
+  document.querySelectorAll('.btab').forEach((el,i)=>el.classList.toggle('active',['soltec','nankai','all'][i]===b));
+  render();
+}
+
+// =============================================
+// VIEW
+// =============================================
+function setView(v){view=v;['month','week','day'].forEach(x=>document.getElementById(`vbtn-${x}`).classList.toggle('active',x===v));render();}
+function navPrev(){curDate=new Date(curDate);if(view==='day')curDate.setDate(curDate.getDate()-1);else if(view==='week')curDate.setDate(curDate.getDate()-7);else{curDate.setMonth(curDate.getMonth()-1);curDate.setDate(1);}mcDate=new Date(curDate);renderMC();render();}
+function navNext(){curDate=new Date(curDate);if(view==='day')curDate.setDate(curDate.getDate()+1);else if(view==='week')curDate.setDate(curDate.getDate()+7);else{curDate.setMonth(curDate.getMonth()+1);curDate.setDate(1);}mcDate=new Date(curDate);renderMC();render();}
+function goToday(){curDate=new Date();curDate.setHours(0,0,0,0);mcDate=new Date(curDate);renderMC();render();}
+function render(){renderRightSidebar();if(view==='month')renderMonth();else renderTL();}
+
+// =============================================
+// MONTH VIEW
+// =============================================
+function renderMonth(){
+  const y=curDate.getFullYear(),mo=curDate.getMonth(),tod=ds(new Date());
+  document.getElementById('dateLbl').innerHTML=new Date(y,mo,1).toLocaleDateString('ja-JP',{year:'numeric',month:'long'})+'<br>'+new Date(y,mo,1).toLocaleDateString('vi-VN',{month:'long',year:'numeric'});
+  const visRooms=visR();
+  const legend=`<div class="mv-legend">${visRooms.map(r=>`<div class="mv-leg-item" onclick="selectRoom('${r.id}')"><div class="mv-leg-dot ${r.cc}"></div>${r.short}</div>`).join('')}</div>`;
+  const first=new Date(y,mo,1).getDay(),last=new Date(y,mo+1,0).getDate();
+  let h=legend+`<div class="mv-grid-header">${DOW_JA.map((d,i)=>`<div class="mv-dh">${d} ${DOW_VI[i]}</div>`).join('')}</div><div class="mv-grid">`;
+  const prevL=new Date(y,mo,0).getDate();
+  for(let i=first-1;i>=0;i--)h+=`<div class="mv-cell other-month"><div class="mv-dn">${prevL-i}</div></div>`;
+  for(let d=1;d<=last;d++){
+    const dstr=ds(new Date(y,mo,d));
+    const bks=getBksForDate(dstr).filter(b=>visRooms.some(r=>r.id===b.rId));
+    const isT=dstr===tod;
+    h+=`<div class="mv-cell${isT?' today':''}" onclick="mvClick('${dstr}')"><div class="mv-dn">${d}</div>`;
+    bks.slice(0,3).forEach(b=>{const r=rm(b.rId);if(!r)return;h+=`<div class="mv-ev ${r.cc}" style="border-left-color:${dc(r)}" onclick="showPopup(${b.id},'${dstr}',event)">${fh(b.sH)} ${b.title}</div>`;});
+    if(bks.length>3)h+=`<div class="mv-more">+${bks.length-3} more</div>`;
+    h+=`</div>`;
+  }
+  const tot=first+last,rows=Math.ceil(tot/7);
+  for(let i=1;i<=rows*7-tot;i++)h+=`<div class="mv-cell other-month"><div class="mv-dn">${i}</div></div>`;
+  document.getElementById('viewContainer').innerHTML=h+'</div>';
+}
+function mvClick(dstr){curDate=new Date(dstr+'T00:00:00');setView('day');}
+
+// =============================================
+// TIMELINE
+// =============================================
+function getWeekDates(){const dow=curDate.getDay();const mon=new Date(curDate);mon.setDate(curDate.getDate()-(dow===0?6:dow-1));return Array.from({length:6},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return ds(d);});}
+
+function renderTL(){
+  const dates=view==='week'?getWeekDates():[ds(curDate)];
+  const tod=ds(new Date()),n=new Date(),nh=n.getHours()+n.getMinutes()/60;
+  const rooms=visR();
+  if(view==='day'){
+    document.getElementById('dateLbl').innerHTML=curDate.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'long'})+'<br>'+curDate.toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+  }else{
+    const d0=new Date(dates[0]+'T00:00:00'),d1=new Date(dates[dates.length-1]+'T00:00:00');
+    document.getElementById('dateLbl').innerHTML=d0.toLocaleDateString('ja-JP',{month:'short',day:'numeric'})+' – '+d1.toLocaleDateString('ja-JP',{month:'short',day:'numeric',year:'numeric'})+'<br>'+d0.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'})+' – '+d1.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
+  }
+
+  // Columns: week = per date, day = per room
+  let cols=[];
+  if(view==='week'){
+    dates.forEach(dstr=>{const d=new Date(dstr+'T00:00:00');cols.push({dstr,rId:null,l1:DOW_JA[d.getDay()],l2:d.getDate(),isToday:dstr===tod});});
+  }else{
+    const grp={};rooms.forEach(r=>{if(!grp[r.b])grp[r.b]=[];grp[r.b].push(r);});
+    Object.entries(grp).forEach(([bl,rs])=>rs.forEach(r=>cols.push({dstr:ds(curDate),rId:r.id,l1:r.short,l2:r.sja,isToday:ds(curDate)===tod,bl})));
+  }
+  const minW=view==='week'?110:120;
+
+  let h=`<div class="tl-outer"><div class="tl-gutter"><div class="tl-gutter-inner" id="tlGutter"><div class="tl-g-head"></div>`;
+  HOURS.forEach(hr=>h+=`<div class="tl-g-slot"><span>${hr}:00</span></div>`);
+  h+=`</div></div><div class="tl-cols-wrap" id="tlCW"><div style="display:flex;flex-direction:column;"><div class="tl-head-row">`;
+  cols.forEach((c,ci)=>{
+    const bks=getBksForDate(c.dstr).filter(b=>c.rId?b.rId===c.rId:rooms.some(r=>r.id===b.rId));
+    h+=`<div class="tl-col-head${c.isToday?' today-col':''}" style="min-width:${minW}px" onclick="colClick('${c.dstr}','${c.rId||''}')">`;
+    if(c.bl)h+=`<div style="font-size:7px;font-weight:700;color:#1d4ed8;">${c.bl==='soltec'?'SOLTEC':'NANKAI'}</div>`;
+    h+=`<div class="dh-dow">${c.l1}</div><div class="dh-num">${c.l2}</div><div class="dh-sub">${bks.length?bks.length+'件':''}</div></div>`;
+  });
+  h+=`</div><div style="display:flex;">`;
+  cols.forEach((c,ci)=>{
+    const bks=getBksForDate(c.dstr).filter(b=>c.rId?b.rId===c.rId:rooms.some(r=>r.id===b.rId));
+    h+=`<div class="tl-day-col" style="min-width:${minW}px" data-dstr="${c.dstr}" data-rid="${c.rId||''}">`;
+    HOURS.forEach(hr=>h+=`<div class="tl-slot" onclick="slotClick('${c.dstr}','${c.rId||''}',${hr},event)"></div>`);
+    bks.forEach(b=>{
+      const r=rm(b.rId);if(!r)return;
+      const top=(b.sH-HOURS[0])*SH,ht=Math.max((b.eH-b.sH)*SH-2,18);
+      h+=`<div class="bk ${r.cc}" id="bk_${b.id}" style="top:${top}px;height:${ht}px;" data-id="${b.id}" data-dstr="${c.dstr}"
+        onmousedown="dragStart(event,${b.id},'${c.dstr}')"
+        onclick="if(!drag.moved){showPopup(${b.id},'${c.dstr}',event);}drag.moved=false;">
+        <div class="bk-inner">
+          <div class="bk-time">${fh(b.sH)}${b.recur&&b.recur!=='none'?' 🔁':''}</div>
+          <div class="bk-title">${b.title}</div>
+          <div class="bk-person">${b.person||''}</div>
+        </div>
+        ${b.pin?'<div class="bk-lock">🔒</div>':''}
+        <div class="bk-resize" onmousedown="resizeStart(event,${b.id})"></div>
+      </div>`;
+    });
+    if(c.dstr===tod&&nh>=HOURS[0]&&nh<=HOURS[HOURS.length-1])
+      h+=`<div class="now-line" style="top:${(nh-HOURS[0])*SH}px"></div>`;
+    h+=`</div>`;
+  });
+  h+=`</div></div></div></div>`;
+  document.getElementById('viewContainer').innerHTML=h;
+  const cw=document.getElementById('tlCW'),tg=document.getElementById('tlGutter');
+  if(cw&&tg)cw.addEventListener('scroll',()=>tg.style.top=`-${cw.scrollTop}px`);
+}
+function colClick(dstr,rId){if(view==='week'){curDate=new Date(dstr+'T00:00:00');setView('day');}}
+function slotClick(dstr,rId,h,e){
+  e.stopPropagation();e.preventDefault();
+  openModal(rId||ROOMS[0].id,h,dstr);
+}
+
+// =============================================
+// DRAG & DROP
+// =============================================
+function dragStart(e,id,dstr){
+  if(e.target.classList.contains('bk-resize'))return;
+  e.preventDefault();e.stopPropagation();
+  const bk=bookings.find(b=>String(b.id)===String(id));if(!bk)return;
+  // Ghi lại vị trí mousedown, chưa kích hoạt drag ngay
+  drag.pending=true; // đang chờ xem có move không
+  drag.moved=false;
+  drag.startX=e.clientX;
+  drag.startY=e.clientY;
+  drag.bkId=bk.id;
+  drag.origEl=e.currentTarget;
+  drag.origDstr=dstr;
+  drag.offsetY=e.clientY-e.currentTarget.getBoundingClientRect().top;
+  drag.dur=bk.eH-bk.sH;
+  drag.copyMode=e.altKey||e.ctrlKey;
+  drag.pin=bk.pin||'';
+  // Chưa add class dragging, chờ mousemove
+}
+function resizeStart(e,id){
+  e.preventDefault();e.stopPropagation();
+  const bk=bookings.find(b=>String(b.id)===String(id));if(!bk)return;
+  if(bk.pin){
+    const entered=prompt('🔒 Nhập PIN để chỉnh sửa:');
+    if(!entered||String(entered)!==String(bk.pin)){alert('❌ Sai PIN!');return;}
+  }
+  rsz.active=true;rsz.bkId=bk.id;rsz.startY=e.clientY;rsz.startEH=bk.eH;
+}
+function getColAt(x){
+  const cols=document.querySelectorAll('.tl-day-col');
+  for(const col of cols){const r=col.getBoundingClientRect();if(x>=r.left&&x<=r.right)return col;}
+  return null;
+}
+function getHourAt(col,clientY){
+  const cw=document.getElementById('tlCW');
+  const r=col.getBoundingClientRect();
+  const relY=(clientY-r.top)+(cw?cw.scrollTop:0)-52;
+  return Math.max(HOURS[0],Math.min(18,Math.round((HOURS[0]+relY/SH)*4)/4));
+}
+document.addEventListener('mousemove',e=>{
+  if(rsz.active){
+    const bk=bookings.find(b=>String(b.id)===String(rsz.bkId));
+    if(bk){bk.eH=Math.max(bk.sH+0.25,Math.min(18,Math.round((rsz.startEH+(e.clientY-rsz.startY)/SH)*4)/4));
+      const el=document.getElementById(`bk_${bk.id}`);
+      if(el)el.style.height=`${Math.max((bk.eH-bk.sH)*SH-2,18)}px`;}return;
+  }
+  if(!drag.pending&&!drag.active)return;
+  // Kiểm tra có di chuyển đủ xa chưa (threshold 5px)
+  if(drag.pending&&!drag.active){
+    const dx=Math.abs(e.clientX-drag.startX), dy=Math.abs(e.clientY-drag.startY);
+    if(dx<5&&dy<5)return; // chưa đủ -> bỏ qua
+    // Đủ rồi -> kích hoạt drag thực sự, yêu cầu PIN nếu có
+    if(drag.pin){
+      const entered=prompt('🔒 Nhập PIN để di chuyển lịch:');
+      if(!entered||String(entered)!==String(drag.pin)){
+        drag.pending=false;drag.active=false;return;
+      }
+    }
+    drag.pending=false;drag.active=true;drag.moved=true;
+    if(drag.origEl) drag.origEl.classList.add('dragging');
+    if(drag.copyMode) document.body.style.cursor='copy';
+  }
+  const col=getColAt(e.clientX);
+  const g=document.getElementById('dropGhost');
+  if(col){
+    const cRect=col.getBoundingClientRect(),cw=document.getElementById('tlCW');
+    const sH=Math.max(HOURS[0],Math.min(18-drag.dur,getHourAt(col,e.clientY-(drag.offsetY/2))));
+    g.style.display='block';g.style.left=`${cRect.left+2}px`;
+    g.style.top=`${cRect.top+(sH-HOURS[0])*SH+52-(cw?cw.scrollTop:0)}px`;
+    g.style.width=`${cRect.width-4}px`;g.style.height=`${drag.dur*SH-4}px`;
+    g.dataset.dstr=col.dataset.dstr;g.dataset.rid=col.dataset.rid;g.dataset.sH=sH;
+  }else g.style.display='none';
+});
+document.addEventListener('mouseup',async e=>{
+  if(rsz.active){rsz.active=false;const bk=bookings.find(b=>String(b.id)===String(rsz.bkId));if(bk)await saveToSheets(bk);render();return;}
+  // Reset pending state
+  if(drag.pending&&!drag.active){
+    // Đây là click đơn (không drag) -> mở popup với data cũ
+    drag.pending=false;
+    const bkClick=bookings.find(b=>String(b.id)===String(drag.bkId));
+    if(bkClick) showPopup(bkClick.id, drag.origDstr, e);
+    return;
+  }
+  if(!drag.active)return;
+  const g=document.getElementById('dropGhost');
+  if(g&&g.style.display!=='none'&&g.dataset.dstr){
+    const newDstr=g.dataset.dstr,newRid=g.dataset.rid,newSH=parseFloat(g.dataset.sH);
+    const bk=bookings.find(b=>String(b.id)===String(drag.bkId));
+    if(bk){
+      if(drag.copyMode){
+        const nb={...bk,id:String(Date.now()),date:newDstr,sH:newSH,eH:newSH+drag.dur,recur:'none',pin:''};
+        if(newRid)nb.rId=newRid;
+        bookings.push(nb);await saveToSheets(nb);
+        setTimeout(()=>openEditModal(nb),50);
+      }else{bk.date=newDstr;bk.sH=newSH;bk.eH=newSH+drag.dur;if(newRid)bk.rId=newRid;await saveToSheets(bk);}
+    }
+  }
+  g.style.display='none';
+  if(drag.origEl)drag.origEl.classList.remove('dragging');
+  document.body.style.cursor='';drag.active=false;drag.pending=false;drag.moved=false;drag.origEl=null;
+  render();renderMC();
+});
+
+// =============================================
+// POPUP
+// =============================================
+function showPopup(id,dstr,e){
+  e.stopPropagation();popupId=id;
+  const bk=bookings.find(b=>String(b.id)===String(id));if(!bk)return;
+  const r=rm(bk.rId);
+  document.getElementById('pp_title').textContent=bk.title;
+  document.getElementById('pp_room').textContent=`${r.vi} / ${r.ja}`;
+  document.getElementById('pp_time').textContent=`${dstr} ${fh(bk.sH)}–${fh(bk.eH)}${bk.recur&&bk.recur!=='none'?(' 🔁'+(bk.recurUntil?' → '+bk.recurUntil:'∞')):''}` ;
+  document.getElementById('pp_person').textContent=bk.person||'—';
+  document.getElementById('pp_note').textContent=bk.note||'';
+  document.getElementById('pp_note_row').style.display=bk.note?'':'none';
+  const editBtn=document.getElementById('pp_edit_btn');
+  if(bk.pin){
+    editBtn.textContent='🔒 Sửa (cần PIN)';
+    editBtn.onclick=()=>verifyAndEdit(bk.id);
+  }else{
+    editBtn.textContent='✏ Sửa';
+    editBtn.onclick=()=>{closePopup();const b=bookings.find(x=>String(x.id)===String(bk.id));if(b)openEditModal(b);};
+  }
+  const p=document.getElementById('popup');
+  p.style.left=Math.min(e.pageX+4,window.innerWidth-260)+'px';
+  p.style.top=Math.min(e.pageY+8,window.innerHeight-200)+'px';
+  p.classList.add('active');
+}
+function closePopup(){document.getElementById('popup').classList.remove('active');}
+function verifyAndEdit(id){
+  const bk=bookings.find(b=>String(b.id)===String(id));if(!bk)return;
+  const entered=prompt('🔒 Nhập PIN để chỉnh sửa / パスコードを入力:');
+  if(entered===null)return;
+  if(String(entered)===String(bk.pin)){closePopup();openEditModal(bk);}
+  else alert('❌ Sai PIN!');
+}
+function copyFromPopup(){
+  closePopup();
+  const bk=bookings.find(b=>String(b.id)===String(popupId));if(!bk)return;
+  const nb={...bk,id:String(Date.now()),recur:'none',pin:''};
+  bookings.push(nb);openEditModal(nb);
+}
+
+// =============================================
+// MODAL
+// =============================================
+function openModal(rId,h,dstr){
+  editId=null;
+  modalDate=dstr||ds(curDate);
+  // Set min date cho recur_until = ngày bắt đầu
+  const ruEl=document.getElementById('f_recur_until');
+  if(ruEl) ruEl.min=modalDate;
+  const mt=document.getElementById('modalTitle');if(!mt)return;
+  mt.textContent='📅 予約 / Đặt phòng';
+  const ms=document.getElementById('modalSub');if(ms)ms.textContent=modalDate;
+  const rs=document.getElementById('f_room');if(rs){if(rs.options.length===0)initSelect();rs.value=rId||ROOMS[0].id;}
+  const hr=h!==null&&h!==undefined?Number(h):new Date().getHours();
+  const fs=document.getElementById('f_start');if(fs)fs.value=`${String(Math.floor(hr)).padStart(2,'0')}:00`;
+  const fe=document.getElementById('f_end');if(fe)fe.value=`${String(Math.min(Math.floor(hr)+1,18)).padStart(2,'0')}:00`;
+  ['f_title','f_person','f_note','f_pin','f_recur_until'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  setRecurUI('none');
+  document.getElementById('btnDel').style.display='none';
+  document.getElementById('btnCopy').style.display='none';
+  document.getElementById('cwarn').classList.remove('show');
+  document.getElementById('fg_pin').style.display='';
+  const bs=document.getElementById('btnSave');if(bs){bs.textContent='確定/Xác nhận';bs.disabled=false;}
+  const m=document.getElementById('bookModal');m.style.display='flex';m.classList.add('active');
+}
+function openEditModal(bk){
+  editId=bk.id;
+  modalDate=bk.date;
+  const mt=document.getElementById('modalTitle');if(!mt)return;
+  mt.textContent='✏ 編集 / Chỉnh sửa';
+  const ms=document.getElementById('modalSub');if(ms)ms.textContent=modalDate;
+  document.getElementById('f_room').value=bk.rId;
+  document.getElementById('f_start').value=fh(bk.sH);
+  document.getElementById('f_end').value=fh(bk.eH);
+  document.getElementById('f_title').value=bk.title;
+  document.getElementById('f_person').value=bk.person||'';
+  document.getElementById('f_note').value=bk.note||'';
+  document.getElementById('f_pin').value='';
+  const ru=document.getElementById('f_recur_until');
+  if(ru) ru.value=bk.recurUntil||'';
+  // Hiện field nếu có recurring
+  const fgu=document.getElementById('fg_recur_until');
+  if(fgu) fgu.style.display=(bk.recur&&bk.recur!=='none')?'':'none';
+  setRecurUI(bk.recur||'none');
+  document.getElementById('btnDel').style.display='block';
+  document.getElementById('btnCopy').style.display='block';
+  document.getElementById('cwarn').classList.remove('show');
+  document.getElementById('fg_pin').style.display='none'; // ẩn PIN khi edit
+  const bs=document.getElementById('btnSave');if(bs){bs.textContent='確定/Xác nhận';bs.disabled=false;}
+  const m=document.getElementById('bookModal');m.style.display='flex';m.classList.add('active');
+}
+function closeModal(){const m=document.getElementById('bookModal');m.classList.remove('active');m.style.display='';}
+function setRecur(el){setRecurUI(el.dataset.v);}
+function setRecurUI(v){
+  recurMode=v;
+  document.querySelectorAll('.rchip').forEach(c=>c.classList.toggle('on',c.dataset.v===v));
+  // Hiện field kết thúc lặp khi chọn recurring
+  const fg=document.getElementById('fg_recur_until');
+  if(fg) fg.style.display=(v&&v!=='none')?'':'none';
+}
+function chkConflict(){
+  const rId=document.getElementById('f_room').value;
+  const sH=p2h(document.getElementById('f_start').value);
+  const eH=p2h(document.getElementById('f_end').value);
+  const w=document.getElementById('cwarn');
+  if(eH<=sH){w.textContent='⚠ Giờ kết thúc phải sau bắt đầu (12:00 AM = nửa đêm, không phải 12 trưa)';w.classList.add('show');return;}
+  const cf=getBksForDate(modalDate).find(b=>b.rId===rId&&String(b.id)!==String(editId)&&!(b.eH<=sH||b.sH>=eH));
+  if(cf){w.textContent=`⚠ Trùng lịch: "${cf.title}" ${fh(cf.sH)}–${fh(cf.eH)}`;w.classList.add('show');}
+  else w.classList.remove('show');
+}
+async function saveBk(){
+  const rId=document.getElementById('f_room').value;
+  const title=document.getElementById('f_title').value.trim();
+  const person=document.getElementById('f_person').value.trim();
+  const note=document.getElementById('f_note').value.trim();
+  const pin=document.getElementById('f_pin').value.trim();
+  const sH=p2h(document.getElementById('f_start').value);
+  const eH=p2h(document.getElementById('f_end').value);
+  if(!title){alert('Vui lòng nhập nội dung họp');return;}
+  if(eH<=sH){
+  const msg='⚠ Giờ kết thúc ('+document.getElementById('f_end').value+') phải sau giờ bắt đầu ('+document.getElementById('f_start').value+').\n\nLưu ý: 12:00 AM = nửa đêm (0h). Nếu muốn 12 trưa hãy chọn 12:00 PM.';
+  alert(msg);return;
+}
+  const bs=document.getElementById('btnSave');
+  bs.textContent='Đang lưu...';bs.disabled=true;
+  try{
+    if(editId!=null){
+      const bk=bookings.find(b=>String(b.id)===String(editId));
+      if(bk){
+      const recurUntil=(document.getElementById('f_recur_until')||{}).value||'';
+      Object.assign(bk,{rId,title,person,note,sH,eH,recur:recurMode,recurUntil});
+      await saveToSheets(bk);
+    }
+    }else{
+      const recurUntil=(document.getElementById('f_recur_until')||{}).value||'';
+    const nb={id:String(Date.now()),rId,title,person,note,date:modalDate,sH,eH,recur:recurMode,recurUntil,pin};
+      bookings.push(nb);await saveToSheets(nb);
+    }
+  }catch(e){console.warn('saveBk:',e);}
+  bs.textContent='確定/Xác nhận';bs.disabled=false;
+  closeModal();render();renderMC();
+}
+async function copyBk(){
+  closeModal();
+  const bk=bookings.find(b=>String(b.id)===String(editId));if(!bk)return;
+  const nb={...bk,id:String(Date.now()),recur:'none',pin:''};
+  bookings.push(nb);openEditModal(nb);
+}
+async function deleteBk(){
+  if(!confirm('Xóa lịch này? / この予約を削除しますか？'))return;
+  await deleteFromSheets(editId);
+  bookings=bookings.filter(b=>String(b.id)!==String(editId));
+  saveLocalBackup();
+  closeModal();render();renderMC();
+}
+
+// =============================================
+// INIT
+// =============================================
+function initSelect(){
+  const sel=document.getElementById('f_room');
+  const grp={};ROOMS.forEach(r=>{if(!grp[r.b])grp[r.b]=[];grp[r.b].push(r);});
+  sel.innerHTML=Object.entries(grp).map(([bl,rs])=>
+    `<optgroup label="${bl==='soltec'?'🏗 Soltec (第1工場)':'🏗 Nankai (第2工場)'}">
+      ${rs.map(r=>`<option value="${r.id}">${r.vi} / ${r.ja}${r.tags.length?' ['+r.tags.join('/')+']':''}</option>`).join('')}
+    </optgroup>`
+  ).join('');
+}
+
+// Close handlers
+document.getElementById('bookModal').addEventListener('mousedown',function(e){
+  if(e.target===this&&!e.target.closest('.modal'))closeModal();
+});
+document.addEventListener('click',e=>{
+  if(!document.getElementById('popup').contains(e.target))closePopup();
+});
+document.addEventListener('contextmenu',e=>{if(drag.active)e.preventDefault();});
+
+initSelect();
+// Load localStorage backup ngay lập tức
+const _initBackup=loadLocalBackup();
+if(_initBackup&&_initBackup.length>0){bookings=_initBackup;}
+if(!API_URL){
+  document.getElementById('setupOverlay').classList.add('show');
+  renderMC();render();
+}else{
+  renderMC();render(); // hiện backup ngay
+  loadFromSheets();    // sync server nền
+}
+</script>
+</body>
+</html>
